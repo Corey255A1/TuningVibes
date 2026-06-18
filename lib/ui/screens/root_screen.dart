@@ -6,6 +6,8 @@ import '../../modes/bpm/bpm_mode.dart';
 import '../../modes/bpm/bpm_mode_widget.dart';
 import '../../modes/metronome/metronome_mode.dart';
 import '../../modes/metronome/metronome_mode_widget.dart';
+import '../../modes/tone_generator/tone_generator_mode.dart';
+import '../../modes/tone_generator/tone_generator_mode_widget.dart';
 import '../../domain/app_mode.dart';
 
 /// Root screen that hosts the mode selector and renders the active mode's UI.
@@ -60,6 +62,11 @@ class RootScreen extends StatelessWidget {
       case 'metronome':
         return MetronomeModeWidget(
           mode: mode as MetronomeMode,
+          orchestrator: orchestrator,
+        );
+      case 'tone_generator':
+        return ToneGeneratorModeWidget(
+          mode: mode as ToneGeneratorMode,
           orchestrator: orchestrator,
         );
       default:

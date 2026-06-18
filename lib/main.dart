@@ -4,6 +4,7 @@ import 'ui/screens/root_screen.dart';
 import 'modes/tuner/tuner_mode.dart';
 import 'modes/bpm/bpm_mode.dart';
 import 'modes/metronome/metronome_mode.dart';
+import 'modes/tone_generator/tone_generator_mode.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +18,7 @@ void main() {
       TunerMode(),
       BpmMode(),
       MetronomeMode(),
+      ToneGeneratorMode(),
     ],
   );
 

@@ -86,6 +86,90 @@
         osc.stop(now + decay + 0.01);
       }
     };
+
+    // --- Tone Generator audio synthesizer using Web Audio API ---
+    window.toneGenerator = {
+      audioContext: null,
+      oscillator: null,
+      gainNode: null,
+      isPlaying: false,
+      currentFrequency: 440,
+      currentType: 'sine',
+      currentVolume: 0.5,
+
+      _ensureContext: function() {
+        if (!this.audioContext || this.audioContext.state === 'closed') {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume();
+        }
+      },
+
+      start: function(frequency, type, volume) {
+        this._ensureContext();
+        this.stop(); // Stop any existing oscillator
+
+        this.currentFrequency = frequency;
+        this.currentType = type;
+        this.currentVolume = volume;
+
+        const ctx = this.audioContext;
+        this.oscillator = ctx.createOscillator();
+        this.gainNode = ctx.createGain();
+
+        this.oscillator.type = type; // 'sine', 'square', 'sawtooth', 'triangle'
+        this.oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+        this.gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+
+        this.oscillator.connect(this.gainNode);
+        this.gainNode.connect(ctx.destination);
+
+        this.oscillator.start();
+        this.isPlaying = true;
+      },
+
+      setFrequency: function(frequency) {
+        this.currentFrequency = frequency;
+        if (this.isPlaying && this.oscillator && this.audioContext) {
+          this.oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+        }
+      },
+
+      setVolume: function(volume) {
+        this.currentVolume = volume;
+        if (this.isPlaying && this.gainNode && this.audioContext) {
+          const ctx = this.audioContext;
+          this.gainNode.gain.setTargetAtTime(volume, ctx.currentTime, 0.01);
+        }
+      },
+
+      setType: function(type) {
+        this.currentType = type;
+        if (this.isPlaying && this.oscillator) {
+          this.oscillator.type = type;
+        }
+      },
+
+      stop: function() {
+        if (this.isPlaying) {
+          try {
+            if (this.oscillator) {
+              this.oscillator.stop();
+              this.oscillator.disconnect();
+              this.oscillator = null;
+            }
+            if (this.gainNode) {
+              this.gainNode.disconnect();
+              this.gainNode = null;
+            }
+          } catch (e) {
+            console.error("Error stopping tone generator oscillator:", e);
+          }
+          this.isPlaying = false;
+        }
+      }
+    };
   </script>
   <script>
     window.audioRecorder = {
