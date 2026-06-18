@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
-import 'ui/screens/tuner_screen.dart';
-import 'ui/tuner_view_model.dart';
+import 'ui/app_orchestrator.dart';
+import 'ui/screens/root_screen.dart';
+import 'modes/tuner/tuner_mode.dart';
+import 'modes/bpm/bpm_mode.dart';
+import 'modes/metronome/metronome_mode.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  final TunerViewModel viewModel = TunerViewModel();
-  runApp(MyApp(viewModel: viewModel));
+
+  // Register all modes here. To add a new mode:
+  //   1. Create a class extending AppMode
+  //   2. Add it to this list
+  //   3. Handle its id in RootScreen._buildModeUI
+  final orchestrator = AppOrchestrator(
+    modes: [
+      TunerMode(),
+      BpmMode(),
+      MetronomeMode(),
+    ],
+  );
+
+  runApp(TuningVibesApp(orchestrator: orchestrator));
 }
 
-class MyApp extends StatelessWidget {
-  final TunerViewModel viewModel;
+class TuningVibesApp extends StatelessWidget {
+  final AppOrchestrator orchestrator;
 
-  const MyApp({
-    super.key,
-    required this.viewModel,
-  });
+  const TuningVibesApp({super.key, required this.orchestrator});
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +53,10 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: TunerScreen(viewModel: viewModel),
+      home: ListenableBuilder(
+        listenable: orchestrator,
+        builder: (context, _) => RootScreen(orchestrator: orchestrator),
+      ),
     );
   }
 }

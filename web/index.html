@@ -42,6 +42,52 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script>
+    // --- Metronome audio synthesizer using Web Audio API ---
+    window.metronome = {
+      audioContext: null,
+
+      _ensureContext: function() {
+        if (!this.audioContext || this.audioContext.state === 'closed') {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume();
+        }
+      },
+
+      // type: 0 = downbeat (accent), 1 = beat, 2 = subdivision
+      playClick: function(type) {
+        this._ensureContext();
+        const ctx = this.audioContext;
+        const now = ctx.currentTime;
+
+        // Frequency and volume by type
+        const freqs  = [1100, 750, 500];
+        const gains  = [0.9,  0.6, 0.3];
+        const decays = [0.06, 0.05, 0.04];
+
+        const freq  = freqs[type]  ?? 750;
+        const gain  = gains[type]  ?? 0.6;
+        const decay = decays[type] ?? 0.05;
+
+        const osc = ctx.createOscillator();
+        const env = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+
+        env.gain.setValueAtTime(gain, now);
+        env.gain.exponentialRampToValueAtTime(0.001, now + decay);
+
+        osc.connect(env);
+        env.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + decay + 0.01);
+      }
+    };
+  </script>
+  <script>
     window.audioRecorder = {
       audioContext: null,
       stream: null,

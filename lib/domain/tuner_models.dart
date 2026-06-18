@@ -217,6 +217,19 @@ class Instrument {
       ];
 }
 
+/// Historical audio data point for the spectrogram waterfall display.
+class HistoryPoint {
+  final double frequency;
+  final double amplitude;
+  final DateTime timestamp;
+
+  HistoryPoint({
+    required this.frequency,
+    required this.amplitude,
+    required this.timestamp,
+  });
+}
+
 /// Represents the current measurement from the pitch detector.
 class TuningState {
   final double frequency; // Detected fundamental frequency in Hz (0 if no signal)

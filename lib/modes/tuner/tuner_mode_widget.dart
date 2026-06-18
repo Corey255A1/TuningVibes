@@ -1,26 +1,32 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../tuner_view_model.dart';
-import '../widgets/waveform_painter.dart';
-import '../widgets/needle_painter.dart';
-import '../widgets/waterfall_painter.dart';
-import '../widgets/instrument_pegs.dart';
-import '../widgets/instrument_selector.dart';
+import 'tuner_mode.dart';
+import '../../ui/app_orchestrator.dart';
+import '../../ui/widgets/waveform_painter.dart';
+import '../../ui/widgets/needle_painter.dart';
+import '../../ui/widgets/waterfall_painter.dart';
+import '../../ui/widgets/instrument_pegs.dart';
+import '../../ui/widgets/instrument_selector.dart';
 import '../../domain/tuner_models.dart';
 
-class TunerScreen extends StatefulWidget {
-  final TunerViewModel viewModel;
+/// The Tuner mode's full UI, adapted from the original TunerScreen.
+/// Receives state from [TunerMode] and delegates interactions back to it.
+class TunerModeWidget extends StatefulWidget {
+  final TunerMode mode;
+  final AppOrchestrator orchestrator;
 
-  const TunerScreen({
+  const TunerModeWidget({
     super.key,
-    required this.viewModel,
+    required this.mode,
+    required this.orchestrator,
   });
 
   @override
-  State<TunerScreen> createState() => _TunerScreenState();
+  State<TunerModeWidget> createState() => _TunerModeWidgetState();
 }
 
-class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStateMixin {
+class _TunerModeWidgetState extends State<TunerModeWidget>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
 
   @override
@@ -43,7 +49,7 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
       context: context,
       builder: (context) {
         return ListenableBuilder(
-          listenable: widget.viewModel,
+          listenable: widget.orchestrator,
           builder: (context, _) {
             return AlertDialog(
               backgroundColor: Colors.grey[900],
@@ -56,20 +62,20 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    "A4 = ${widget.viewModel.referencePitch.toStringAsFixed(1)} Hz",
+                    "A4 = ${widget.mode.referencePitch.toStringAsFixed(1)} Hz",
                     style: const TextStyle(color: Colors.cyanAccent, fontSize: 24.0, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   Slider(
-                    value: widget.viewModel.referencePitch,
+                    value: widget.mode.referencePitch,
                     min: 432.0,
                     max: 446.0,
                     divisions: 14,
                     activeColor: Colors.cyanAccent,
                     inactiveColor: Colors.grey[800],
-                    label: widget.viewModel.referencePitch.round().toString(),
+                    label: widget.mode.referencePitch.round().toString(),
                     onChanged: (val) {
-                      widget.viewModel.referencePitch = val;
+                      widget.mode.referencePitch = val;
                     },
                   ),
                   const Text(
@@ -94,67 +100,54 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: widget.viewModel,
-      builder: (context, _) {
-        final state = widget.viewModel.state;
-        final hasSignal = state.hasSignal;
-        final isLocked = state.isLocked;
+    final modeState = widget.mode.state;
+    final tuningState = modeState.tuningState;
+    final hasSignal = tuningState.hasSignal;
+    final isLocked = tuningState.isLocked;
 
-        // Dynamic theme color based on tuning state
-        Color glowColor = Colors.cyanAccent;
-        if (hasSignal) {
-          glowColor = isLocked ? Colors.greenAccent : (state.centsOffset > 0 ? Colors.redAccent : Colors.orangeAccent);
-        }
+    Color glowColor = Colors.cyanAccent;
+    if (hasSignal) {
+      glowColor = isLocked
+          ? Colors.greenAccent
+          : (tuningState.centsOffset > 0 ? Colors.redAccent : Colors.orangeAccent);
+    }
 
-        return Scaffold(
-          backgroundColor: const Color(0xFF0D0F13), // Deep premium dark slate background
-          body: Stack(
-            children: [
-              // 1. Organic real-time waveform running in the background across the entire viewport
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 0.12,
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: SizedBox(
-                      height: 280,
-                      child: RealtimeWaveform(
-                        samples: widget.viewModel.waveformSamples,
-                        color: glowColor,
-                        hasSignal: hasSignal,
-                      ),
-                    ),
-                  ),
+    return Stack(
+      children: [
+        // Background waveform
+        Positioned.fill(
+          child: Opacity(
+            opacity: 0.12,
+            child: Align(
+              alignment: Alignment.center,
+              child: SizedBox(
+                height: 280,
+                child: RealtimeWaveform(
+                  samples: modeState.waveformSamples,
+                  color: glowColor,
+                  hasSignal: hasSignal,
                 ),
               ),
-
-              // 2. Main content container
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // If width is greater than 720px, switch to a side-by-side landscape dashboard
-                      final bool isWide = constraints.maxWidth > 720;
-                      
-                      if (isWide) {
-                        return _buildLandscapeLayout(context, state, hasSignal, isLocked, glowColor);
-                      } else {
-                        return _buildPortraitLayout(context, state, hasSignal, isLocked, glowColor);
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        );
-      },
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final bool isWide = constraints.maxWidth > 720;
+              if (isWide) {
+                return _buildLandscapeLayout(context, tuningState, hasSignal, isLocked, glowColor);
+              } else {
+                return _buildPortraitLayout(context, tuningState, hasSignal, isLocked, glowColor);
+              }
+            },
+          ),
+        ),
+      ],
     );
   }
 
-  /// Single-column scrollable layout optimized for portrait/narrow screen sizes
   Widget _buildPortraitLayout(
     BuildContext context,
     TuningState state,
@@ -167,9 +160,9 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
         constraints: const BoxConstraints(maxWidth: 480),
         child: Column(
           children: [
+            const SizedBox(height: 4.0),
+            _buildCalibrationRow(context),
             const SizedBox(height: 8.0),
-            _buildHeader(context),
-            const SizedBox(height: 12.0),
             _buildInstrumentSelector(),
             Expanded(
               child: SingleChildScrollView(
@@ -195,7 +188,6 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
     );
   }
 
-  /// Two-column dashboard layout optimized for landscape/wide screen sizes
   Widget _buildLandscapeLayout(
     BuildContext context,
     TuningState state,
@@ -205,14 +197,13 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
   ) {
     return Column(
       children: [
+        const SizedBox(height: 4.0),
+        _buildCalibrationRow(context),
         const SizedBox(height: 8.0),
-        _buildHeader(context),
-        const SizedBox(height: 12.0),
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Left Column: Main tuner display gauge, readouts, controls
               Expanded(
                 flex: 5,
                 child: Column(
@@ -240,8 +231,6 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
                   ],
                 ),
               ),
-
-              // Vertical separator line
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
                 child: Container(
@@ -249,8 +238,6 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
                   color: Colors.white.withOpacity(0.04),
                 ),
               ),
-
-              // Right Column: Instrument presets selector, pegboard, history graphs
               Expanded(
                 flex: 6,
                 child: Column(
@@ -286,47 +273,14 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
     );
   }
 
-  /* --- Sub-Widgets Helper Methods --- */
-
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildCalibrationRow(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "TUNING VIBES",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18.0,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2.0,
-                shadows: [
-                  Shadow(
-                    color: Colors.cyanAccent.withOpacity(0.3),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              "HIGH PRECISION AUDIO ENGINE",
-              style: TextStyle(
-                color: Colors.cyanAccent.withOpacity(0.6),
-                fontSize: 7.5,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
-              ),
-            ),
-          ],
-        ),
-        
-        // Calibration button
         GestureDetector(
           onTap: () => _showCalibrationDialog(context),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.02),
               borderRadius: BorderRadius.circular(10.0),
@@ -337,7 +291,7 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
                 const Icon(Icons.tune, size: 12.0, color: Colors.cyanAccent),
                 const SizedBox(width: 4.0),
                 Text(
-                  "A4 = ${widget.viewModel.referencePitch.round()}Hz",
+                  "A4 = ${widget.mode.referencePitch.round()}Hz",
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10.0,
@@ -354,12 +308,12 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
 
   Widget _buildInstrumentSelector() {
     return InstrumentSelector(
-      instruments: widget.viewModel.instruments,
-      selectedInstrument: widget.viewModel.selectedInstrument,
-      selectedTuning: widget.viewModel.selectedTuning,
-      onSelectChromatic: widget.viewModel.selectChromaticMode,
-      onSelectInstrument: widget.viewModel.selectInstrument,
-      onSelectTuning: widget.viewModel.selectTuning,
+      instruments: widget.mode.instruments,
+      selectedInstrument: widget.mode.selectedInstrument,
+      selectedTuning: widget.mode.selectedTuning,
+      onSelectChromatic: widget.mode.selectChromaticMode,
+      onSelectInstrument: widget.mode.selectInstrument,
+      onSelectTuning: widget.mode.selectTuning,
     );
   }
 
@@ -386,12 +340,7 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
                 fontSize: 64.0,
                 fontWeight: FontWeight.w900,
                 shadows: hasSignal
-                    ? [
-                        Shadow(
-                          color: glowColor.withOpacity(0.6),
-                          blurRadius: 24,
-                        ),
-                      ]
+                    ? [Shadow(color: glowColor.withOpacity(0.6), blurRadius: 24)]
                     : [],
               ),
               child: Text(state.closestNote.name),
@@ -410,8 +359,6 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
             ),
           ],
         ),
-        
-        // Frequency and Cent readout
         SizedBox(
           height: 36,
           child: hasSignal
@@ -439,8 +386,8 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
                   ],
                 )
               : Text(
-                  widget.viewModel.isListening 
-                      ? "Pluck a string..." 
+                  widget.orchestrator.isListening
+                      ? "Pluck a string..."
                       : "Tap start to tune",
                   style: TextStyle(
                     color: Colors.grey.withOpacity(0.5),
@@ -454,7 +401,7 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
   }
 
   Widget _buildSignalLevel(TuningState state) {
-    if (!widget.viewModel.isListening) return const SizedBox(height: 12.0);
+    if (!widget.orchestrator.isListening) return const SizedBox(height: 12.0);
     return Column(
       children: [
         const SizedBox(height: 8.0),
@@ -477,7 +424,6 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
               ),
             ),
             const SizedBox(width: 4.0),
-            // Visual Level Meter
             ClipRRect(
               borderRadius: BorderRadius.circular(2.0),
               child: Container(
@@ -507,13 +453,12 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
   }
 
   Widget _buildPegboard(TuningState state, bool hasSignal, bool isLocked, Color glowColor) {
-    if (widget.viewModel.selectedInstrument != null && 
-        widget.viewModel.selectedTuning != null) {
+    if (widget.mode.selectedInstrument != null && widget.mode.selectedTuning != null) {
       return InstrumentPegs(
-        tuning: widget.viewModel.selectedTuning!,
+        tuning: widget.mode.selectedTuning!,
         activeString: state.closestString,
-        selectedString: widget.viewModel.selectedString,
-        onSelectString: widget.viewModel.selectString,
+        selectedString: widget.mode.selectedString,
+        onSelectString: widget.mode.selectString,
         hasSignal: hasSignal,
         isLocked: isLocked,
       );
@@ -540,8 +485,8 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
 
   Widget _buildWaterfall() {
     return SpectrogramWaterfall(
-      history: widget.viewModel.frequencyHistory,
-      referencePitch: widget.viewModel.referencePitch,
+      history: widget.mode.state.frequencyHistory,
+      referencePitch: widget.mode.referencePitch,
     );
   }
 
@@ -551,14 +496,14 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
         animation: _pulseController,
         builder: (context, child) {
           final pulseValue = _pulseController.value;
-          final bool active = widget.viewModel.isListening;
-          
+          final bool active = widget.orchestrator.isListening;
+
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            padding: const EdgeInsets.symmetric(vertical: 12.0),
             child: GestureDetector(
-              onTap: widget.viewModel.toggleListening,
+              onTap: widget.orchestrator.toggleListening,
               child: Container(
-                height: 54,
+                height: 50,
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -566,7 +511,7 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
                         ? [Colors.redAccent.withOpacity(0.85), const Color(0xFFFF5252)]
                         : [Colors.cyan[600]!, Colors.cyanAccent],
                   ),
-                  borderRadius: BorderRadius.circular(28.0),
+                  borderRadius: BorderRadius.circular(26.0),
                   boxShadow: active
                       ? [
                           BoxShadow(
@@ -590,7 +535,7 @@ class _TunerScreenState extends State<TunerScreen> with SingleTickerProviderStat
                     Icon(
                       active ? Icons.mic_off : Icons.mic,
                       color: Colors.white,
-                      size: 20.0,
+                      size: 18.0,
                     ),
                     const SizedBox(width: 10.0),
                     Text(

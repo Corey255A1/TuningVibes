@@ -6,19 +6,6 @@ import '../domain/tuner_models.dart';
 import '../dsp/pitch_detector.dart';
 import '../bridge/native_audio_adapter.dart';
 
-/// Historical audio data point for the spectrogram waterfall display
-class HistoryPoint {
-  final double frequency;
-  final double amplitude;
-  final DateTime timestamp;
-
-  HistoryPoint({
-    required this.frequency,
-    required this.amplitude,
-    required this.timestamp,
-  });
-}
-
 /// The state controller and ViewModel for the SleekTuner application.
 class TunerViewModel extends ChangeNotifier {
   final AudioInputPort _audioPort = AudioAdapterFactory.create();

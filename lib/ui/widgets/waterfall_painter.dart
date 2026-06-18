@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../tuner_view_model.dart';
 import '../../domain/tuner_models.dart';
 
 class WaterfallPainter extends CustomPainter {
