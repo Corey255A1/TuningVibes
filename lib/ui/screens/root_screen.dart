@@ -80,7 +80,7 @@ class RootScreen extends StatelessWidget {
   }
 }
 
-/// Horizontal mode selector tab bar.
+/// Horizontal mode selector dropdown menu.
 class _ModeSelector extends StatelessWidget {
   final AppOrchestrator orchestrator;
 
@@ -88,6 +88,8 @@ class _ModeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentMode = orchestrator.currentMode;
+
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -110,69 +112,93 @@ class _ModeSelector extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          // Mode tabs
-          ...orchestrator.modes.map((mode) => _ModeTab(
-                mode: mode,
-                isSelected: orchestrator.currentMode?.id == mode.id,
-                onTap: () => orchestrator.selectMode(mode.id),
-              )),
-        ],
-      ),
-    );
-  }
-}
-
-/// Individual mode tab chip in the selector bar.
-class _ModeTab extends StatelessWidget {
-  final AppMode mode;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ModeTab({
-    required this.mode,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(left: 6.0),
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 5.0),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.cyanAccent.withOpacity(0.15)
-              : Colors.white.withOpacity(0.03),
-          borderRadius: BorderRadius.circular(20.0),
-          border: Border.all(
-            color: isSelected
-                ? Colors.cyanAccent.withOpacity(0.6)
-                : Colors.white.withOpacity(0.06),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              mode.icon,
-              size: 13.0,
-              color: isSelected ? Colors.cyanAccent : Colors.grey,
-            ),
-            const SizedBox(width: 5.0),
-            Text(
-              mode.displayName.toUpperCase(),
-              style: TextStyle(
-                color: isSelected ? Colors.cyanAccent : Colors.grey,
-                fontSize: 9.5,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.8,
+          // Mode Dropdown Selection Menu
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
               ),
             ),
-          ],
-        ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: currentMode?.id,
+                onChanged: (newId) {
+                  if (newId != null) {
+                    orchestrator.selectMode(newId);
+                  }
+                },
+                dropdownColor: const Color(0xFF13161C),
+                borderRadius: BorderRadius.circular(16.0),
+                icon: const Padding(
+                  padding: EdgeInsets.only(left: 6.0),
+                  child: Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.cyanAccent,
+                    size: 16.0,
+                  ),
+                ),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                ),
+                selectedItemBuilder: (BuildContext context) {
+                  return orchestrator.modes.map((mode) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          mode.icon,
+                          size: 13.0,
+                          color: Colors.cyanAccent,
+                        ),
+                        const SizedBox(width: 6.0),
+                        Text(
+                          mode.displayName.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.cyanAccent,
+                            fontSize: 10.0,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList();
+                },
+                items: orchestrator.modes.map((mode) {
+                  final bool isSelected = currentMode?.id == mode.id;
+                  return DropdownMenuItem<String>(
+                    value: mode.id,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          mode.icon,
+                          size: 13.0,
+                          color: isSelected ? Colors.cyanAccent : Colors.grey,
+                        ),
+                        const SizedBox(width: 8.0),
+                        Text(
+                          mode.displayName.toUpperCase(),
+                          style: TextStyle(
+                            color: isSelected ? Colors.cyanAccent : Colors.white.withOpacity(0.8),
+                            fontSize: 10.0,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

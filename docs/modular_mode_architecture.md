@@ -226,11 +226,11 @@ class RootScreen extends StatelessWidget {
 }
 ```
 
-### `ModeSelector`
+### `_ModeSelector`
 
-**File:** `lib/ui/mode_selector.dart`
+**File:** `lib/ui/screens/root_screen.dart`
 
-A simple tab bar (or `NavigationBar`) built from the `modes` list. Each entry displays the mode's `icon` and `displayName`. Tapping calls `AppOrchestrator.switchMode(id)`.
+A custom, glassmorphic dropdown selection menu built from the orchestrator's `modes` list. It uses `DropdownButton HideUnderline` and custom `selectedItemBuilder` formatting to display the selected mode's icon and uppercase display name in cyan Accent. Choosing a dropdown item invokes `AppOrchestrator.selectMode(id)`.
 
 ---
 

@@ -54,6 +54,7 @@ class BpmMode extends AppMode {
 
   // BPM calculation — rolling onset timestamp buffer
   final List<DateTime> _onsetTimestamps = [];
+  final List<DateTime> _manualTapTimestamps = [];
   static const int _maxOnsets = 12;
   double _smoothBpm = 0.0;
 
@@ -97,14 +98,80 @@ class BpmMode extends AppMode {
     _longTermEnergy = 0.0;
     _samplesSinceLastOnset = 0;
     _onsetTimestamps.clear();
+    _manualTapTimestamps.clear();
     _smoothBpm = 0.0;
   }
 
-  // --- Tap Tempo ---
-
   /// Register a manual tap for Tap Tempo functionality.
   void registerTap() {
-    _recordOnset();
+    final now = DateTime.now();
+
+    // Reset tap sequence if it's been more than 3 seconds since last tap
+    if (_manualTapTimestamps.isNotEmpty &&
+        now.difference(_manualTapTimestamps.last).inMilliseconds > 3000) {
+      _manualTapTimestamps.clear();
+    }
+
+    _manualTapTimestamps.add(now);
+    if (_manualTapTimestamps.length > 8) {
+      _manualTapTimestamps.removeAt(0);
+    }
+
+    // Trigger beat flash visual
+    _state = BpmState(
+      bpm: _smoothBpm > 0 ? _smoothBpm : 120.0, // fallback display if no BPM yet
+      hasSignal: true,
+      isBeatFlash: true,
+      confidence: 1.0,
+      amplitude: _state.amplitude,
+    );
+    _context?.notifyStateChanged();
+
+    // Reset flash after 100ms
+    _beatFlashTimer?.cancel();
+    _beatFlashTimer = Timer(const Duration(milliseconds: 100), () {
+      _state = BpmState(
+        bpm: _smoothBpm,
+        hasSignal: _state.hasSignal,
+        isBeatFlash: false,
+        confidence: _state.confidence,
+        amplitude: _state.amplitude,
+      );
+      _context?.notifyStateChanged();
+    });
+
+    if (_manualTapTimestamps.length >= 2) {
+      final List<double> iois = [];
+      for (int i = 1; i < _manualTapTimestamps.length; i++) {
+        final double ms = _manualTapTimestamps[i]
+            .difference(_manualTapTimestamps[i - 1])
+            .inMilliseconds
+            .toDouble();
+        if (ms >= 150 && ms <= 3000) {
+          iois.add(ms);
+        }
+      }
+
+      if (iois.isNotEmpty) {
+        final double avgIoi = iois.reduce((a, b) => a + b) / iois.length;
+        final double tappedBpm = 60000.0 / avgIoi;
+
+        // Update running smooth BPM
+        _smoothBpm = tappedBpm;
+
+        // Clear audio onsets to avoid interference, and synchronize with tap timestamps
+        _onsetTimestamps.clear();
+        _onsetTimestamps.addAll(_manualTapTimestamps);
+
+        _state = BpmState(
+          bpm: tappedBpm,
+          hasSignal: _state.hasSignal,
+          isBeatFlash: _state.isBeatFlash,
+          confidence: 1.0,
+          amplitude: _state.amplitude,
+        );
+      }
+    }
     _context?.notifyStateChanged();
   }
 

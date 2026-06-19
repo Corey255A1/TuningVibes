@@ -190,17 +190,36 @@ A confidence near 1.0 means the IOIs are very consistent (steady rhythm). A conf
 
 ## Tap Tempo Fallback
 
-When the audio signal is ambiguous or absent, the user can tap the screen to provide beats manually. Tap Tempo uses the **same rolling IOI calculation** as the automatic onset detector, but feeds it user-gesture timestamps instead of detected onsets.
+When the audio signal is ambiguous or absent, the user can tap the screen to provide beats manually. Tap Tempo tracks manual taps in an independent `_manualTapTimestamps` buffer to prevent old audio-detected onsets from polluting or diluting the tapped tempo.
 
 ```dart
-void onTapTempo() {
+void registerTap() {
   final now = DateTime.now();
-  _recordOnset(now); // reuses the same onset buffer and BPM logic
-  _state.update(isBeatDetected: true); // flash the beat indicator
+
+  // Reset tap sequence if it's been more than 3 seconds since last tap
+  if (_manualTapTimestamps.isNotEmpty &&
+      now.difference(_manualTapTimestamps.last).inMilliseconds > 3000) {
+    _manualTapTimestamps.clear();
+  }
+
+  _manualTapTimestamps.add(now);
+
+  if (_manualTapTimestamps.length >= 2) {
+    // Calculates BPM based on manual taps
+    final avgIoi = _computeAverageIoi(_manualTapTimestamps);
+    final tappedBpm = 60000.0 / avgIoi;
+    
+    // Updates running smooth BPM directly
+    _smoothBpm = tappedBpm;
+    
+    // Clears old audio onsets to avoid interference, and synchronize with tap timestamps
+    _onsetTimestamps.clear();
+    _onsetTimestamps.addAll(_manualTapTimestamps);
+  }
 }
 ```
 
-Tap Tempo events and audio-detected onsets share the same buffer, so switching between them is seamless. The buffer resets automatically if no tap or onset is received within 3 seconds (one full `_maxIoi` timeout).
+By clearing and seeding the main onset buffer (`_onsetTimestamps`) with the manual tap sequence, BpmMode ensures a clean handoff between manual tapping and microphone audio analysis. Taps also immediately trigger a 100ms flash indicator visual feedback.
 
 ---
 
